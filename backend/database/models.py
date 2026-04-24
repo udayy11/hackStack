@@ -193,3 +193,18 @@ class ChatHistory(Base):
     role = Column(String(20))  # user / assistant
     message = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class UserPreferences(Base):
+    """Stores user onboarding preferences for personalized dashboard."""
+    __tablename__ = "user_preferences"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String(100), unique=True, index=True, default="default_user")
+    company_type = Column(String(50))  # manufacturer, retailer, 3pl, distributor
+    supply_chain_type = Column(String(50))  # international, regional, domestic
+    regions = Column(JSON)  # list of region IDs: [na, eu, apac, latam, mea]
+    locations = Column(JSON)  # {origins: [], destinations: [], suppliers: []}
+    priorities = Column(JSON)  # list: [cost, speed, risk, sustainability]
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

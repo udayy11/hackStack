@@ -24,6 +24,29 @@ async function request(endpoint, options = {}) {
 // ── Dashboard ──
 export const getDashboard = () => request('/dashboard');
 
+export const getDashboardPersonalized = (preferences) => {
+  const params = new URLSearchParams();
+  if (preferences.priorities && preferences.priorities.length > 0) {
+    params.append('priorities', preferences.priorities.join(','));
+  }
+  if (preferences.regions && preferences.regions.length > 0) {
+    params.append('regions', preferences.regions.join(','));
+  }
+  const query = params.toString();
+  return request(`/dashboard${query ? '?' + query : ''}`);
+};
+
+export const savePreferences = (preferences) => {
+  return request('/dashboard/preferences', {
+    method: 'POST',
+    body: JSON.stringify(preferences),
+  });
+};
+
+export const getPreferences = () => {
+  return request('/dashboard/preferences');
+};
+
 // ── Shipments ──
 export const getShipments = (params = {}) => {
   const qs = new URLSearchParams(params).toString();

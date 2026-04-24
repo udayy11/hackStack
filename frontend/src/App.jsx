@@ -4,6 +4,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import ChatPanel from './components/ChatPanel';
+import Onboarding from './pages/Onboarding';
 import Dashboard from './pages/Dashboard';
 import ControlTower from './pages/ControlTower';
 import Shipments from './pages/Shipments';
@@ -26,6 +27,7 @@ export default function App() {
             <Route path="/alerts" element={<Alerts />} />
             <Route path="/suppliers" element={<Suppliers />} />
             <Route path="/actions" element={<ActionLog />} />
+            <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/simulation" element={<Simulation />} />
             <Route path="/learning" element={<Learning />} />
           </Routes>
