@@ -5,3 +5,33 @@ build
 .env
 .env.local
 .DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE (if not already using .vscode rules)
+.idea/
+*.swp
+*.swo
+
+# Database (if applicable)
+*.db
+*.sqlite
+*.sqlite3
+
+# Misc
+.mypy_cache/
+.env.production
