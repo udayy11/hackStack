@@ -6,8 +6,9 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Package, TrendingUp, DollarSign, Leaf, AlertTriangle,
-  Truck, CheckCircle
+  Truck, CheckCircle, Settings, ChevronRight
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 import KpiCard from '../components/KpiCard';
 import RiskGauge from '../components/RiskGauge';
@@ -17,6 +18,7 @@ import { getDashboardPersonalized } from '../services/api';
 export default function Dashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (window.location.pathname === '/onboarding') return;
@@ -24,7 +26,7 @@ export default function Dashboard() {
     const preferences = localStorage.getItem('userPreferences');
 
     if (!preferences) {
-      window.location.href = '/onboarding';
+      navigate('/onboarding');
       return;
     }
 
@@ -40,7 +42,7 @@ export default function Dashboard() {
       setLoading(false);
     }
 
-  }, []);
+  }, [navigate]);
 
   // ✅ Proper conditional rendering
   if (loading) return <LoadingSkeleton />;
@@ -58,11 +60,21 @@ export default function Dashboard() {
     <div className="space-y-6">
 
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-text-primary">Dashboard</h1>
-        <p className="text-sm text-text-muted mt-1">
-          Real-time supply chain intelligence
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-text-primary">Dashboard</h1>
+          <p className="text-sm text-text-muted mt-1">
+            Real-time supply chain intelligence
+          </p>
+        </div>
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          onClick={() => navigate('/onboarding')}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-cyan/10 border border-cyan/30 text-cyan hover:bg-cyan/20 transition-all text-sm font-medium"
+        >
+          <Settings className="w-4 h-4" />
+          Re-run Setup
+        </motion.button>
       </div>
 
       {/* KPI Cards */}

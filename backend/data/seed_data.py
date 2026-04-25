@@ -187,7 +187,7 @@ def generate_alerts(shipment_ids):
             severity=template["sev"].value,
             category=template["cat"],
             is_read=random.choice([True, False]),
-            is_resolved=random.choice([True, False, False]),
+            is_resolved=False,
             created_at=datetime.utcnow() - timedelta(hours=random.randint(0, 72)),
         ))
     return alerts

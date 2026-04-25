@@ -4,13 +4,15 @@
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, Map, Package, Bell, Users, FileText,
-  MessageSquare, Beaker, Brain, Activity, ChevronLeft, ChevronRight
+  Beaker, Brain, Activity, ChevronLeft, ChevronRight,
+  Settings
 } from 'lucide-react';
 import { useState } from 'react';
 
 const navItems = [
   { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { path: '/control-tower', icon: Map, label: 'Control Tower' },
+  { path: '/onboarding', icon: Settings, label: 'Onboarding' },
   { path: '/shipments', icon: Package, label: 'Shipments' },
   { path: '/alerts', icon: Bell, label: 'Alerts' },
   { path: '/suppliers', icon: Users, label: 'Suppliers' },
@@ -54,7 +56,7 @@ export default function Sidebar() {
             to={path}
             end={path === '/'}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
+              `relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
                 isActive
                   ? 'text-cyan bg-cyan/8 border-l-3 border-cyan'
                   : 'text-text-secondary hover:text-text-primary hover:bg-white/5'
@@ -63,6 +65,9 @@ export default function Sidebar() {
           >
             <Icon className="w-5 h-5 shrink-0" />
             {!collapsed && <span>{label}</span>}
+            {label === 'Setup' && !collapsed && (
+              <span className="absolute right-2 top-1 w-2 h-2 rounded-full bg-status-warning animate-pulse" title="Setup recommended" />
+            )}
           </NavLink>
         ))}
       </nav>

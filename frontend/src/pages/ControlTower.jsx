@@ -1,14 +1,23 @@
 /**
- * Control Tower — Live shipment tracking map with risk-colored markers.
- * Uses Google Maps (or a static map fallback if no API key).
+ * Control Tower — Live shipment tracking map with Leaflet.
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { MapPin, Navigation, Clock, Shield, Maximize2 } from 'lucide-react';
+import { MapPin, Navigation, Clock, Shield } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import L from 'leaflet';
 import StatusBadge from '../components/StatusBadge';
 import { getShipmentMap } from '../services/api';
+import 'leaflet/dist/leaflet.css';
 
-// ── Map marker colors ──
+// Fix Leaflet default icon issue in React
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+});
+
 const riskColors = {
   low: '#22C55E',
   medium: '#F59E0B',
@@ -16,13 +25,46 @@ const riskColors = {
   critical: '#EF4444',
 };
 
-const statusIcons = {
-  in_transit: '🚢',
-  pending: '📦',
-  delivered: '✅',
-  delayed: '⚠️',
-  rerouted: '🔄',
-};
+// Custom marker component
+function ShipmentMarker({ shipment, isSelected, onClick }) {
+  const color = riskColors[shipment.risk_level] || riskColors.low;
+
+  // Create custom icon
+  const icon = L.divIcon({
+    className: 'custom-marker',
+    html: `
+      <div style="
+        background-color: ${color};
+        border: 2px solid #0B0F19;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        box-shadow: 0 0 10px ${color}66;
+        ${shipment.risk_score > 70 ? 'animation: pulse 2s infinite;' : ''}
+      "></div>
+    `,
+    iconSize: [16, 16],
+    className: 'leaflet-marker',
+  });
+
+  return (
+    <Marker
+      position={[shipment.current_lat, shipment.current_lng]}
+      icon={icon}
+      eventHandlers={{
+        click: onClick,
+      }}
+    >
+      <Popup>
+        <div className="text-xs space-y-1">
+          <p className="font-semibold">{shipment.tracking_id}</p>
+          <p>{shipment.carrier}</p>
+          <p style={{ color }}>Risk: {shipment.risk_score}</p>
+        </div>
+      </Popup>
+    </Marker>
+  );
+}
 
 export default function ControlTower() {
   const [shipments, setShipments] = useState([]);
@@ -36,7 +78,20 @@ export default function ControlTower() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="flex items-center justify-center h-96"><div className="skeleton w-full h-full rounded-2xl" /></div>;
+  if (loading) 
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="skeleton w-full h-full rounded-2xl" />
+      </div>
+    );
+
+  // Calculate map center from shipments
+  const center = shipments.length > 0
+    ? [
+        shipments.reduce((sum, s) => sum + s.current_lat, 0) / shipments.length,
+        shipments.reduce((sum, s) => sum + s.current_lng, 0) / shipments.length,
+      ]
+    : [20, 0]; // Default to world center
 
   return (
     <div className="space-y-6">
@@ -46,7 +101,6 @@ export default function ControlTower() {
           <p className="text-sm text-text-muted mt-1">Live shipment tracking & risk visualization</p>
         </div>
         <div className="flex items-center gap-3">
-          {/* Legend */}
           <div className="flex items-center gap-4 text-xs text-text-muted">
             <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-green" /> Safe</span>
             <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-amber" /> Medium</span>
@@ -60,104 +114,27 @@ export default function ControlTower() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="lg:col-span-3 glass-card overflow-hidden"
+          className="lg:col-span-3 glass-card overflow-hidden rounded-2xl"
           style={{ height: '600px' }}
         >
-          {/* World Map Visualization (CSS-based) */}
-          <div className="relative w-full h-full bg-bg-primary"
-            style={{
-              backgroundImage: `
-                radial-gradient(circle at 20% 50%, rgba(0, 229, 255, 0.03) 0%, transparent 50%),
-                radial-gradient(circle at 80% 30%, rgba(124, 58, 237, 0.03) 0%, transparent 50%)
-              `,
-            }}
+          <MapContainer
+            center={center}
+            zoom={3}
+            style={{ width: '100%', height: '100%' }}
           >
-            {/* Grid overlay */}
-            <div className="absolute inset-0 opacity-10"
-              style={{
-                backgroundImage: 'linear-gradient(rgba(0,229,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(0,229,255,0.1) 1px, transparent 1px)',
-                backgroundSize: '60px 60px',
-              }}
+            <TileLayer
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution='&copy; OpenStreetMap contributors'
             />
-
-            {/* Shipment markers positioned on a mercator-like projection */}
-            {shipments.map((s) => {
-              // Convert lat/lng to x/y percentages (rough mercator)
-              const x = ((s.current_lng + 180) / 360) * 100;
-              const y = ((90 - s.current_lat) / 180) * 100;
-              const color = riskColors[s.risk_level] || riskColors.low;
-
-              return (
-                <motion.div
-                  key={s.id}
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ delay: s.id * 0.02 }}
-                  className="absolute cursor-pointer group"
-                  style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)' }}
-                  onClick={() => setSelected(s)}
-                >
-                  {/* Pulse ring for high-risk */}
-                  {s.risk_score > 70 && (
-                    <span
-                      className="absolute inset-0 rounded-full animate-ping"
-                      style={{ backgroundColor: `${color}33` }}
-                    />
-                  )}
-
-                  {/* Marker dot */}
-                  <div
-                    className="relative w-4 h-4 rounded-full border-2 transition-transform hover:scale-150"
-                    style={{
-                      backgroundColor: color,
-                      borderColor: '#0B0F19',
-                      boxShadow: `0 0 10px ${color}66`,
-                    }}
-                  />
-
-                  {/* Tooltip on hover */}
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-10">
-                    <div className="glass-card px-3 py-2 text-xs whitespace-nowrap">
-                      <p className="font-semibold text-text-primary">{s.tracking_id}</p>
-                      <p className="text-text-muted">{s.carrier}</p>
-                      <p style={{ color }}>Risk: {s.risk_score}</p>
-                    </div>
-                  </div>
-                </motion.div>
-              );
-            })}
-
-            {/* Route lines for selected shipment */}
-            {selected && (
-              <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 5 }}>
-                <line
-                  x1={`${((selected.origin_lng + 180) / 360) * 100}%`}
-                  y1={`${((90 - selected.origin_lat) / 180) * 100}%`}
-                  x2={`${((selected.current_lng + 180) / 360) * 100}%`}
-                  y2={`${((90 - selected.current_lat) / 180) * 100}%`}
-                  stroke="#00E5FF"
-                  strokeWidth="2"
-                  strokeDasharray="6 3"
-                  opacity="0.6"
-                />
-                <line
-                  x1={`${((selected.current_lng + 180) / 360) * 100}%`}
-                  y1={`${((90 - selected.current_lat) / 180) * 100}%`}
-                  x2={`${((selected.dest_lng + 180) / 360) * 100}%`}
-                  y2={`${((90 - selected.dest_lat) / 180) * 100}%`}
-                  stroke="#7C3AED"
-                  strokeWidth="2"
-                  strokeDasharray="6 3"
-                  opacity="0.4"
-                />
-              </svg>
-            )}
-
-            {/* Map watermark */}
-            <div className="absolute bottom-4 left-4 text-xs text-text-muted/40">
-              Live Tracking — {shipments.length} shipments
-            </div>
-          </div>
+            {shipments.map(s => (
+              <ShipmentMarker
+                key={s.id}
+                shipment={s}
+                isSelected={selected?.id === s.id}
+                onClick={() => setSelected(s)}
+              />
+            ))}
+          </MapContainer>
         </motion.div>
 
         {/* Shipment Details Panel */}
@@ -170,7 +147,12 @@ export default function ControlTower() {
             >
               <div className="flex items-center justify-between">
                 <h3 className="font-bold text-text-primary">{selected.tracking_id}</h3>
-                <button onClick={() => setSelected(null)} className="text-text-muted hover:text-text-primary text-xs cursor-pointer">✕</button>
+                <button 
+                  onClick={() => setSelected(null)} 
+                  className="text-text-muted hover:text-text-primary text-xs cursor-pointer"
+                >
+                  ✕
+                </button>
               </div>
               <StatusBadge status={selected.status} />
               <div className="space-y-2 text-sm">

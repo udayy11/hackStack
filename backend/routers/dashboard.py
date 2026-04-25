@@ -7,10 +7,11 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, or_
 from database.connection import get_db
-from database.models import Shipment, Alert, ActionLog, Supplier, Inventory, UserPreferences
+from database.models import Shipment, Alert, ActionLog, Supplier, Inventory, UserPreferences, RiskLevel, AlertSeverity, ShipmentStatus
 from pydantic import BaseModel
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
+import random
 
 router = APIRouter(prefix="/api/dashboard", tags=["Dashboard"])
 
@@ -34,7 +35,7 @@ class UserPreferencesRequest(BaseModel):
 
 @router.post("/preferences")
 async def save_preferences(prefs: UserPreferencesRequest, db: AsyncSession = Depends(get_db)):
-    """Save user preferences from onboarding"""
+    """Save user preferences from onboarding and create user-specific shipments/alerts"""
     user_id = "default_user"  # In production, get from auth token
     
     # Check if preferences already exist
@@ -65,7 +66,100 @@ async def save_preferences(prefs: UserPreferencesRequest, db: AsyncSession = Dep
     await db.commit()
     await db.refresh(user_pref)
     
-    return {"status": "saved", "preferences": prefs}
+    # ── Create user-specific shipments from origins to destinations ──
+    shipments_created = 0
+    alerts_created = 0
+    
+    if prefs.locations.get("origins") and prefs.locations.get("destinations"):
+        origins = prefs.locations["origins"]
+        destinations = prefs.locations["destinations"]
+        
+        # Create shipments between each origin-destination pair
+        for origin in origins:
+            for destination in destinations:
+                try:
+                    # Calculate risk based on priorities
+                    risk_score = random.randint(20, 85)
+                    if "risk" in prefs.priorities:
+                        risk_score = random.randint(60, 95)  # Higher risk focus
+                    elif "speed" in prefs.priorities:
+                        risk_score = random.randint(40, 70)  # Delay-related risks
+                    elif "cost" in prefs.priorities:
+                        risk_score = random.randint(30, 60)  # Cost-related risks
+                    
+                    risk_level = (
+                        RiskLevel.CRITICAL if risk_score >= 85
+                        else RiskLevel.HIGH if risk_score >= 70
+                        else RiskLevel.MEDIUM if risk_score >= 40
+                        else RiskLevel.LOW
+                    )
+                    
+                    # Interpolate current position
+                    progress = random.uniform(0.2, 0.8)
+                    curr_lat = origin["lat"] + (destination["lat"] - origin["lat"]) * progress
+                    curr_lng = origin["lng"] + (destination["lng"] - origin["lng"]) * progress
+                    
+                    shipment = Shipment(
+                        tracking_id=f"USR-{user_id[:3].upper()}-{random.randint(100000, 999999)}",
+                        origin=origin.get("city", "Origin"),
+                        destination=destination.get("city", "Destination"),
+                        origin_lat=origin["lat"],
+                        origin_lng=origin["lng"],
+                        dest_lat=destination["lat"],
+                        dest_lng=destination["lng"],
+                        current_lat=curr_lat,
+                        current_lng=curr_lng,
+                        status=ShipmentStatus.IN_TRANSIT,
+                        carrier=random.choice(["Maersk Line", "MSC", "FedEx", "DHL", "UPS"]),
+                        weight_kg=round(random.uniform(100, 10000), 1),
+                        value_usd=round(random.uniform(5000, 250000), 2),
+                        temperature=round(random.uniform(5, 25), 1),
+                        humidity=round(random.uniform(30, 80), 1),
+                        eta=datetime.utcnow() + timedelta(days=random.randint(5, 15)),
+                        risk_score=risk_score,
+                        risk_level=risk_level.value,
+                        carbon_kg=round(random.uniform(100, 2000), 1),
+                    )
+                    db.add(shipment)
+                    shipments_created += 1
+                except Exception as e:
+                    print(f"Error creating shipment: {e}")
+        
+        await db.flush()  # Flush to get shipment IDs
+    
+    # ── Create priority-based alerts ──
+    alert_templates = {
+        "risk": [{"title": "High Risk Shipment Detected", "msg": "Risk score exceeds threshold for selected shipment", "sev": AlertSeverity.CRITICAL}],
+        "speed": [{"title": "Potential Delivery Delay", "msg": "Weather conditions may impact delivery timeline", "sev": AlertSeverity.WARNING}],
+        "cost": [{"title": "Fuel Price Surge", "msg": "Carrier fuel surcharge increased - cost optimization recommended", "sev": AlertSeverity.WARNING}],
+        "sustainability": [{"title": "Carbon Emissions High", "msg": "Current route has higher carbon footprint - consider alternatives", "sev": AlertSeverity.INFO}],
+    }
+    
+    for priority in prefs.priorities:
+        if priority in alert_templates:
+            for template in alert_templates[priority]:
+                alert = Alert(
+                    title=template["title"],
+                    message=template["msg"],
+                    severity=template["sev"].value,
+                    category=priority,
+                    is_read=False,
+                    is_resolved=False,
+                    created_at=datetime.utcnow(),
+                )
+                db.add(alert)
+                alerts_created += 1
+    
+    await db.commit()
+    
+    return {
+        "status": "saved",
+        "preferences": prefs,
+        "created": {
+            "shipments": shipments_created,
+            "alerts": alerts_created,
+        }
+    }
 
 
 @router.get("/preferences")
@@ -239,10 +333,7 @@ async def get_dashboard(
 
     # ── Recent alerts (last 4 for cleaner UI) ──
     recent_alerts_query = select(Alert).where(
-        and_(
-            Alert.is_resolved == False,
-            *(alert_filter if alert_filter else [True])
-        )
+        Alert.is_resolved == False
     ).order_by(Alert.created_at.desc()).limit(4)
     
     recent_alerts_result = await db.execute(recent_alerts_query)

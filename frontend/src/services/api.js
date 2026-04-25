@@ -26,13 +26,18 @@ export const getDashboard = () => request('/dashboard');
 
 export const getDashboardPersonalized = (preferences) => {
   const params = new URLSearchParams();
-  if (preferences.priorities && preferences.priorities.length > 0) {
+  
+  // Only add params if they have values
+  if (preferences?.priorities && preferences.priorities.length > 0) {
     params.append('priorities', preferences.priorities.join(','));
   }
-  if (preferences.regions && preferences.regions.length > 0) {
+  if (preferences?.regions && preferences.regions.length > 0) {
     params.append('regions', preferences.regions.join(','));
   }
+  
   const query = params.toString();
+  console.log('Dashboard API call with params:', query); // Debug logging
+  
   return request(`/dashboard${query ? '?' + query : ''}`);
 };
 
