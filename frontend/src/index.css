@@ -5,29 +5,29 @@
    ══════════════════════════════════════════ */
 
 @theme {
-  --color-bg-primary: #0B0F19;
+  --color-bg-primary: #0b0f19;
   --color-bg-card: #121826;
   --color-bg-card-hover: #1a2235;
   --color-bg-elevated: #1e2a3a;
   --color-border: #1e293b;
-  --color-border-glow: #00E5FF33;
-  
-  --color-cyan: #00E5FF;
-  --color-purple: #7C3AED;
-  --color-green: #22C55E;
-  --color-amber: #F59E0B;
-  --color-red: #EF4444;
-  --color-blue: #3B82F6;
-  
-  --color-text-primary: #F1F5F9;
-  --color-text-secondary: #94A3B8;
-  --color-text-muted: #64748B;
+  --color-border-glow: #00e5ff33;
+
+  --color-cyan: #00e5ff;
+  --color-purple: #7c3aed;
+  --color-green: #22c55e;
+  --color-amber: #f59e0b;
+  --color-red: #ef4444;
+  --color-blue: #3b82f6;
+
+  --color-text-primary: #f1f5f9;
+  --color-text-secondary: #94a3b8;
+  --color-text-muted: #64748b;
 }
 
 /* ── Base ── */
-* {
-  margin: 0;
-  padding: 0;
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
@@ -36,7 +36,13 @@ html {
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  margin: 0;
+  padding: 0;
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
   background: var(--color-bg-primary);
   color: var(--color-text-primary);
   min-height: 100vh;
@@ -79,11 +85,15 @@ body {
 
 /* ── Neon Glow Effects ── */
 .glow-cyan {
-  box-shadow: 0 0 15px rgba(0, 229, 255, 0.3), 0 0 30px rgba(0, 229, 255, 0.1);
+  box-shadow:
+    0 0 15px rgba(0, 229, 255, 0.3),
+    0 0 30px rgba(0, 229, 255, 0.1);
 }
 
 .glow-purple {
-  box-shadow: 0 0 15px rgba(124, 58, 237, 0.3), 0 0 30px rgba(124, 58, 237, 0.1);
+  box-shadow:
+    0 0 15px rgba(124, 58, 237, 0.3),
+    0 0 30px rgba(124, 58, 237, 0.1);
 }
 
 .glow-text-cyan {
@@ -96,21 +106,31 @@ body {
 
 /* ── Gradient Backgrounds ── */
 .gradient-cyan-purple {
-  background: linear-gradient(135deg, #00E5FF, #7C3AED);
+  background: linear-gradient(135deg, #00e5ff, #7c3aed);
 }
 
 .gradient-card {
-  background: linear-gradient(145deg, rgba(18, 24, 38, 0.9), rgba(11, 15, 25, 0.95));
+  background: linear-gradient(
+    145deg,
+    rgba(18, 24, 38, 0.9),
+    rgba(11, 15, 25, 0.95)
+  );
 }
 
 /* ── Animated Pulse Ring ── */
 @keyframes pulse-ring {
-  0% { transform: scale(0.8); opacity: 1; }
-  100% { transform: scale(2); opacity: 0; }
+  0% {
+    transform: scale(0.8);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
 }
 
 .pulse-ring::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: -4px;
   border-radius: 50%;
@@ -120,7 +140,9 @@ body {
 
 /* ── Risk Score Gauge ── */
 @keyframes gauge-fill {
-  from { stroke-dashoffset: 251; }
+  from {
+    stroke-dashoffset: 251;
+  }
 }
 
 /* ── Smooth Page Transitions ── */
@@ -175,13 +197,22 @@ body {
 
 /* ── Animations ── */
 @keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-5px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
 }
 
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 .animate-float {
@@ -189,7 +220,12 @@ body {
 }
 
 .skeleton {
-  background: linear-gradient(90deg, var(--color-bg-card) 25%, var(--color-bg-elevated) 50%, var(--color-bg-card) 75%);
+  background: linear-gradient(
+    90deg,
+    var(--color-bg-card) 25%,
+    var(--color-bg-elevated) 50%,
+    var(--color-bg-card) 75%
+  );
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   border-radius: 8px;
@@ -197,7 +233,11 @@ body {
 
 /* ── Chat Bubble ── */
 .chat-user {
-  background: linear-gradient(135deg, rgba(0, 229, 255, 0.15), rgba(124, 58, 237, 0.15));
+  background: linear-gradient(
+    135deg,
+    rgba(0, 229, 255, 0.15),
+    rgba(124, 58, 237, 0.15)
+  );
   border: 1px solid rgba(0, 229, 255, 0.2);
   border-radius: 16px 16px 4px 16px;
 }
@@ -217,8 +257,14 @@ body {
 
 /* ── KPI Card Animation ── */
 @keyframes count-up {
-  from { opacity: 0; transform: scale(0.8); }
-  to { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .kpi-value {
