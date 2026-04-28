@@ -4,7 +4,7 @@
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, Map, Package, Bell, Users, FileText,
-  Beaker, Brain, Activity, ChevronLeft, ChevronRight,
+  Beaker, Brain, ChevronLeft, ChevronRight,
   Settings
 } from 'lucide-react';
 import { useState } from 'react';
@@ -37,13 +37,11 @@ export default function Sidebar() {
     >
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 py-5 border-b border-border">
-        <div className="w-10 h-10 rounded-xl gradient-cyan-purple flex items-center justify-center shrink-0">
-          <Activity className="w-5 h-5 text-white" />
-        </div>
+        <img src={new URL('../assets/logo_hackstack.svg', import.meta.url).href} alt="NexChain" className="w-10 h-10 shrink-0" />
         {!collapsed && (
           <div className="overflow-hidden">
-            <h1 className="text-sm font-bold text-text-primary leading-tight">Smart Logistics</h1>
-            <p className="text-xs text-cyan">AI-Powered</p>
+            <h1 className="text-med font-bold text-text-primary leading-tight">NexChain</h1>
+            <p className="text-xs text-cyan">Future of Logistics</p>
           </div>
         )}
       </div>

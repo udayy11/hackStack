@@ -21,28 +21,28 @@ export default function Dashboard() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (window.location.pathname === '/onboarding') return;
-
     const preferences = localStorage.getItem('userPreferences');
 
-    if (!preferences) {
-      navigate('/onboarding');
-      return;
-    }
-
-    try {
-      const prefs = JSON.parse(preferences);
-
-      getDashboardPersonalized(prefs)
+    if (preferences) {
+      try {
+        const prefs = JSON.parse(preferences);
+        getDashboardPersonalized(prefs)
+          .then(setData)
+          .catch(console.error)
+          .finally(() => setLoading(false));
+      } catch (err) {
+        console.error('Invalid preferences JSON:', err);
+        setLoading(false);
+      }
+    } else {
+      // Load dashboard with default data
+      getDashboardPersonalized({})
         .then(setData)
         .catch(console.error)
         .finally(() => setLoading(false));
-    } catch (err) {
-      console.error('Invalid preferences JSON:', err);
-      setLoading(false);
     }
 
-  }, [navigate]);
+  }, []);
 
   // ✅ Proper conditional rendering
   if (loading) return <LoadingSkeleton />;

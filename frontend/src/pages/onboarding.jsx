@@ -1,677 +1,47 @@
 /**
- * Onboarding — Redesigned multi-step setup
- * Industrial-utilitarian aesthetic with Syne + DM Mono typography
+ * Onboarding — Interactive multi-step setup with map integration
+ * Modern SaaS design using Tailwind CSS + Framer Motion
  */
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  ChevronRight, ChevronLeft, CheckCircle, Check, MapPin, Building2, Globe, MapIcon as MapIconLucide, Zap, X
+} from 'lucide-react';
+import InteractiveMap from '../components/InteractiveMap';
 import { savePreferences } from '../services/api';
 
-// ── Design tokens ──────────────────────────────────────────────────────────────
-const tokens = {
-  ink: '#0f0e0d',
-  ink2: '#4a4844',
-  ink3: '#9a9790',
-  surface: '#faf9f7',
-  surface2: '#f1efe9',
-  surface3: '#e8e5dc',
-  line: '#d8d4c8',
-  accent: '#c84b18',
-  accentSoft: '#f9ede7',
-  accent2: '#1a6b4a',
-  accent2Soft: '#e8f4ee',
-  dotBlue: '#1a6b8a',
-  dotAmber: '#b86a00',
-};
-
-// ── Static data ────────────────────────────────────────────────────────────────
 const STEPS = [
-  { id: 1, label: 'Company' },
-  { id: 2, label: 'Scope' },
-  { id: 3, label: 'Regions' },
-  { id: 4, label: 'Locations' },
-  { id: 5, label: 'Priorities' },
+  { id: 1, title: 'Company Type', icon: Building2 },
+  { id: 2, title: 'Supply Chain Type', icon: Globe },
+  { id: 3, title: 'Your Regions', icon: MapIconLucide },
+  { id: 4, title: 'Locations', icon: MapPin },
+  { id: 5, title: 'Priorities', icon: Zap },
 ];
 
 const COMPANY_TYPES = [
-  { value: 'manufacturer', label: 'Manufacturer', desc: 'Produce goods for downstream distribution' },
-  { value: 'retailer',     label: 'Retailer',     desc: 'Sell goods directly to end customers' },
-  { value: '3pl',          label: '3PL Provider', desc: 'Manage logistics on behalf of clients' },
-  { value: 'distributor',  label: 'Distributor',  desc: 'Wholesale distribution and fulfillment' },
-];
-
-const SUPPLY_TYPES = [
-  { value: 'international', label: 'International', desc: 'Multi-country, cross-border operations' },
-  { value: 'regional',      label: 'Regional',      desc: 'Focused on one or two geographic regions' },
-  { value: 'domestic',      label: 'Domestic',      desc: 'Single country operations' },
+  { value: 'manufacturer', label: 'Manufacturer', desc: 'Produce goods' },
+  { value: 'retailer', label: 'Retailer', desc: 'Sell to customers' },
+  { value: '3pl', label: '3PL Provider', desc: 'Manage logistics' },
+  { value: 'distributor', label: 'Distributor', desc: 'Wholesale distribution' },
 ];
 
 const REGIONS = [
-  { id: 'na',   name: 'North America' },
-  { id: 'eu',   name: 'Europe' },
-  { id: 'apac', name: 'Asia Pacific' },
-  { id: 'latam', name: 'Latin America' },
-  { id: 'mea',  name: 'Middle East & Africa' },
+  { id: 'na', name: 'North America', center: { lat: 37, lng: -95 } },
+  { id: 'eu', name: 'Europe', center: { lat: 54, lng: 15 } },
+  { id: 'apac', name: 'Asia Pacific', center: { lat: 10, lng: 120 } },
+  { id: 'latam', name: 'Latin America', center: { lat: -15, lng: -60 } },
+  { id: 'mea', name: 'Middle East & Africa', center: { lat: 5, lng: 20 } },
 ];
 
 const PRIORITIES = [
-  { id: 'cost',           icon: '💰', label: 'Cost optimization', desc: 'Minimize logistics spend' },
-  { id: 'speed',          icon: '⚡', label: 'Speed & delivery',  desc: 'Maintain fast on-time delivery' },
-  { id: 'risk',           icon: '🛡️', label: 'Risk mitigation',   desc: 'Reduce operational disruptions' },
-  { id: 'sustainability', icon: '🌱', label: 'Sustainability',     desc: 'Reduce carbon footprint' },
+  { id: 'cost', label: 'Cost Optimization', icon: '💰', desc: 'Minimize logistics costs' },
+  { id: 'speed', label: 'Speed & Delivery', icon: '⚡', desc: 'Fast on-time delivery' },
+  { id: 'risk', label: 'Risk Mitigation', icon: '🛡️', desc: 'Reduce disruptions' },
+  { id: 'sustainability', label: 'Sustainability', icon: '🌱', desc: 'Lower carbon footprint' },
 ];
 
-const PIN_NAMES = ['Shanghai', 'Rotterdam', 'Chicago', 'Singapore', 'Los Angeles', 'Hamburg', 'Mumbai', 'Dubai'];
-
-// ── Shared styles (CSS-in-JS objects) ─────────────────────────────────────────
-const s = {
-  shell: {
-    minHeight: '100vh',
-    display: 'flex',
-    flexDirection: 'column',
-    background: tokens.surface,
-    color: tokens.ink,
-    fontFamily: "'Syne', sans-serif",
-  },
-  // Header
-  header: {
-    borderBottom: `1.5px solid ${tokens.line}`,
-    padding: '24px 32px 20px',
-    background: tokens.surface,
-  },
-  headerTop: {
-    display: 'flex',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  logo: {
-    fontFamily: "'DM Mono', monospace",
-    fontSize: 11,
-    letterSpacing: '0.12em',
-    color: tokens.ink3,
-    textTransform: 'uppercase',
-  },
-  stepCounter: {
-    fontFamily: "'DM Mono', monospace",
-    fontSize: 11,
-    color: tokens.ink3,
-    letterSpacing: '0.06em',
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: 700,
-    letterSpacing: '-0.03em',
-    color: tokens.ink,
-    lineHeight: 1,
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontFamily: "'DM Mono', monospace",
-    fontSize: 13,
-    color: tokens.ink3,
-  },
-  // Progress track
-  track: {
-    display: 'flex',
-    gap: 3,
-    marginTop: 20,
-    paddingBottom: 22,
-  },
-  // Body
-  body: {
-    flex: 1,
-    padding: '40px 32px',
-    overflow: 'auto',
-  },
-  // Step head
-  stepNum: {
-    fontFamily: "'DM Mono', monospace",
-    fontSize: 11,
-    color: tokens.accent,
-    letterSpacing: '0.1em',
-    textTransform: 'uppercase',
-    marginBottom: 8,
-  },
-  stepTitle: {
-    fontSize: 26,
-    fontWeight: 700,
-    letterSpacing: '-0.04em',
-    lineHeight: 1.1,
-    color: tokens.ink,
-    marginBottom: 8,
-  },
-  stepDesc: {
-    fontFamily: "'DM Mono', monospace",
-    fontSize: 12,
-    color: tokens.ink3,
-    lineHeight: 1.6,
-    maxWidth: 480,
-    marginBottom: 28,
-  },
-  // Grid
-  grid2: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(2, 1fr)',
-    gap: 10,
-  },
-  grid3: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(3, 1fr)',
-    gap: 10,
-  },
-  // Card
-  card: (selected, green = false) => ({
-    border: `1.5px solid ${selected ? (green ? tokens.accent2 : tokens.accent) : tokens.line}`,
-    borderRadius: 3,
-    padding: 20,
-    background: selected ? (green ? tokens.accent2Soft : tokens.accentSoft) : tokens.surface,
-    cursor: 'pointer',
-    transition: 'border-color 0.15s, background 0.15s',
-    textAlign: 'left',
-  }),
-  cardLabel: {
-    fontSize: 15,
-    fontWeight: 600,
-    letterSpacing: '-0.02em',
-    color: tokens.ink,
-    marginBottom: 4,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  cardDesc: {
-    fontFamily: "'DM Mono', monospace",
-    fontSize: 11,
-    color: tokens.ink3,
-    lineHeight: 1.5,
-  },
-  dot: (selected, green = false) => ({
-    width: 10,
-    height: 10,
-    borderRadius: '50%',
-    border: `1.5px solid ${selected ? (green ? tokens.accent2 : tokens.accent) : tokens.line}`,
-    background: selected ? (green ? tokens.accent2 : tokens.accent) : 'transparent',
-    flexShrink: 0,
-    transition: 'all 0.15s',
-  }),
-  checkbox: (selected) => ({
-    width: 14,
-    height: 14,
-    border: `1.5px solid ${selected ? tokens.accent2 : tokens.line}`,
-    borderRadius: 2,
-    background: selected ? tokens.accent2 : 'transparent',
-    flexShrink: 0,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    transition: 'all 0.15s',
-    color: '#fff',
-    fontSize: 9,
-    fontWeight: 700,
-  }),
-  priIcon: (selected) => ({
-    width: 32,
-    height: 32,
-    border: `1.5px solid ${selected ? tokens.accent2 : tokens.line}`,
-    borderRadius: 2,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: 16,
-    marginBottom: 12,
-    transition: 'border-color 0.15s',
-  }),
-  // Summary strip
-  summary: {
-    marginTop: 24,
-    border: `1.5px solid ${tokens.line}`,
-    borderRadius: 3,
-    padding: '14px 18px',
-    background: tokens.surface2,
-    display: 'flex',
-    alignItems: 'center',
-    gap: 12,
-  },
-  summaryLabel: {
-    fontFamily: "'DM Mono', monospace",
-    fontSize: 11,
-    color: tokens.ink3,
-    textTransform: 'uppercase',
-    letterSpacing: '0.08em',
-    flexShrink: 0,
-  },
-  summaryVal: {
-    fontFamily: "'DM Mono', monospace",
-    fontSize: 12,
-    color: tokens.ink,
-  },
-  // Map
-  mapLayout: {
-    display: 'grid',
-    gridTemplateColumns: '1fr 180px',
-    gap: 10,
-  },
-  map: {
-    border: `1.5px solid ${tokens.line}`,
-    borderRadius: 3,
-    background: tokens.surface2,
-    height: 340,
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    position: 'relative',
-    overflow: 'hidden',
-    cursor: 'crosshair',
-  },
-  mapGridBg: {
-    position: 'absolute',
-    inset: 0,
-    backgroundImage: `linear-gradient(${tokens.line} 1px, transparent 1px), linear-gradient(90deg, ${tokens.line} 1px, transparent 1px)`,
-    backgroundSize: '36px 36px',
-    opacity: 0.4,
-    pointerEvents: 'none',
-  },
-  mapLabel: {
-    fontFamily: "'DM Mono', monospace",
-    fontSize: 11,
-    color: tokens.ink3,
-    letterSpacing: '0.08em',
-    textTransform: 'uppercase',
-    zIndex: 1,
-  },
-  mapSub: {
-    fontSize: 13,
-    fontWeight: 600,
-    color: tokens.ink2,
-    zIndex: 1,
-  },
-  // Legend
-  legend: {
-    border: `1.5px solid ${tokens.line}`,
-    borderRadius: 3,
-    padding: 18,
-    background: tokens.surface,
-  },
-  legendTitle: {
-    fontFamily: "'DM Mono', monospace",
-    fontSize: 10,
-    textTransform: 'uppercase',
-    letterSpacing: '0.1em',
-    color: tokens.ink3,
-    marginBottom: 14,
-  },
-  radioRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
-    padding: '8px 10px',
-    borderRadius: 2,
-    cursor: 'pointer',
-    marginBottom: 4,
-  },
-  locTag: (type) => ({
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '7px 10px',
-    borderRadius: 2,
-    marginBottom: 4,
-    fontFamily: "'DM Mono', monospace",
-    fontSize: 11,
-    background: type === 'origin' ? 'rgba(26,107,138,0.08)' : tokens.accent2Soft,
-    color: type === 'origin' ? tokens.dotBlue : tokens.accent2,
-  }),
-  // Footer
-  footer: {
-    borderTop: `1.5px solid ${tokens.line}`,
-    padding: '20px 32px',
-    background: tokens.surface,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  btn: (variant, disabled) => ({
-    fontFamily: "'Syne', sans-serif",
-    fontWeight: 600,
-    fontSize: 13,
-    letterSpacing: '0.01em',
-    padding: '9px 20px',
-    borderRadius: 3,
-    cursor: disabled ? 'default' : 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    border: '1.5px solid',
-    opacity: disabled ? 0.35 : 1,
-    transition: 'all 0.12s',
-    ...(variant === 'ghost' && {
-      background: 'transparent',
-      borderColor: tokens.line,
-      color: tokens.ink2,
-    }),
-    ...(variant === 'primary' && {
-      background: tokens.ink,
-      borderColor: tokens.ink,
-      color: tokens.surface,
-    }),
-    ...(variant === 'complete' && {
-      background: tokens.accent2,
-      borderColor: tokens.accent2,
-      color: '#fff',
-    }),
-  }),
-  pip: (state) => ({
-    width: 24,
-    height: 24,
-    borderRadius: 2,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontFamily: "'DM Mono', monospace",
-    fontSize: 10,
-    border: `1.5px solid ${state === 'active' ? tokens.ink : state === 'done' ? tokens.accent2 : tokens.line}`,
-    background: state === 'active' ? tokens.ink : state === 'done' ? tokens.accent2 : 'transparent',
-    color: state === 'active' || state === 'done' ? '#fff' : tokens.ink3,
-    transition: 'all 0.2s',
-  }),
-  seg: (state) => ({
-    flex: 1,
-    height: 3,
-    background: state === 'done' ? tokens.accent2 : state === 'active' ? tokens.accent : tokens.surface3,
-    position: 'relative',
-    transition: 'background 0.4s ease',
-  }),
-  segLabel: (state) => ({
-    position: 'absolute',
-    top: 8,
-    left: 0,
-    fontFamily: "'DM Mono', monospace",
-    fontSize: 10,
-    color: state === 'active' ? tokens.accent : state === 'done' ? tokens.accent2 : tokens.ink3,
-    whiteSpace: 'nowrap',
-    letterSpacing: '0.04em',
-  }),
-  // Complete screen
-  completeWrap: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 280,
-    gap: 12,
-    animation: 'fadeUp 0.3s ease both',
-  },
-  completeBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 3,
-    background: tokens.accent2,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    color: '#fff',
-    fontSize: 22,
-    fontWeight: 700,
-  },
-};
-
-// ── Segment component ──────────────────────────────────────────────────────────
-function Seg({ label, state: segState }) {
-  return (
-    <div style={s.seg(segState)}>
-      <span style={s.segLabel(segState)}>{label}</span>
-    </div>
-  );
-}
-
-// ── Step 1: Company type ───────────────────────────────────────────────────────
-function Step1({ value, onChange }) {
-  return (
-    <div>
-      <div style={s.stepNum}>Step 01 — Company type</div>
-      <div style={s.stepTitle}>What kind of company are you?</div>
-      <div style={s.stepDesc}>Tailors your metric priorities and default alert thresholds.</div>
-      <div style={s.grid2}>
-        {COMPANY_TYPES.map((t) => (
-          <button key={t.value} style={s.card(value === t.value)} onClick={() => onChange(t.value)}>
-            <div style={s.cardLabel}>
-              {t.label}
-              <div style={s.dot(value === t.value)} />
-            </div>
-            <div style={s.cardDesc}>{t.desc}</div>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ── Step 2: Geographic scope ───────────────────────────────────────────────────
-function Step2({ value, onChange }) {
-  return (
-    <div>
-      <div style={s.stepNum}>Step 02 — Geographic scope</div>
-      <div style={s.stepTitle}>How far does your network reach?</div>
-      <div style={s.stepDesc}>Determines which disruption feeds and routing logic we apply.</div>
-      <div style={s.grid3}>
-        {SUPPLY_TYPES.map((t) => (
-          <button key={t.value} style={s.card(value === t.value)} onClick={() => onChange(t.value)}>
-            <div style={s.cardLabel}>
-              {t.label}
-              <div style={s.dot(value === t.value)} />
-            </div>
-            <div style={s.cardDesc}>{t.desc}</div>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ── Step 3: Regions ────────────────────────────────────────────────────────────
-function Step3({ selected, onToggle }) {
-  const names = REGIONS.filter((r) => selected.includes(r.id)).map((r) => r.name).join(', ') || 'None selected';
-  return (
-    <div>
-      <div style={s.stepNum}>Step 03 — Regions</div>
-      <div style={s.stepTitle}>Where do you operate?</div>
-      <div style={s.stepDesc}>Filters alerts, routes, and supplier data to your active regions.</div>
-      <div style={s.grid3}>
-        {REGIONS.map((r) => {
-          const sel = selected.includes(r.id);
-          return (
-            <button key={r.id} style={s.card(sel, true)} onClick={() => onToggle(r.id)}>
-              <div style={s.cardLabel}>
-                {r.name}
-                <div style={s.checkbox(sel)}>{sel && '✓'}</div>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-      <div style={s.summary}>
-        <span style={s.summaryLabel}>Selected</span>
-        <span style={s.summaryVal}>{names}</span>
-      </div>
-    </div>
-  );
-}
-
-// ── Step 4: Locations ──────────────────────────────────────────────────────────
-function Step4({ locations, onUpdate }) {
-  const [locType, setLocType] = useState('origin');
-  const [pins, setPins] = useState([]);
-  const pinIdx = { current: 0 };
-
-  const handleMapClick = (e) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const name = PIN_NAMES[pinIdx.current++ % PIN_NAMES.length];
-
-    const newPin = { x, y, type: locType, name };
-    setPins((prev) => [...prev, newPin]);
-
-    if (locType === 'origin') {
-      onUpdate({ ...locations, origins: [...locations.origins, { id: Date.now(), city: name }] });
-    } else if (locType === 'destination') {
-      onUpdate({ ...locations, destinations: [...locations.destinations, { id: Date.now(), city: name }] });
-    } else {
-      onUpdate({ ...locations, suppliers: [...(locations.suppliers || []), { id: Date.now(), city: name }] });
-    }
-  };
-
-  const removeOrigin = (idx) => {
-    onUpdate({ ...locations, origins: locations.origins.filter((_, i) => i !== idx) });
-  };
-  const removeDest = (idx) => {
-    onUpdate({ ...locations, destinations: locations.destinations.filter((_, i) => i !== idx) });
-  };
-
-  const dotColor = { origin: tokens.dotBlue, destination: tokens.accent2, supplier: tokens.dotAmber };
-  const o = locations.origins.length;
-  const d = locations.destinations.length;
-  const statusText = `${o} origin${o !== 1 ? 's' : ''}, ${d} destination${d !== 1 ? 's' : ''} — ${o > 0 && d > 0 ? 'ready to continue' : 'add at least one of each'}`;
-
-  return (
-    <div>
-      <div style={s.stepNum}>Step 04 — Key locations</div>
-      <div style={s.stepTitle}>Pin your origins & destinations</div>
-      <div style={s.stepDesc}>At minimum one origin and one destination required.</div>
-
-      <div style={s.mapLayout}>
-        {/* Map */}
-        <div style={s.map} onClick={handleMapClick}>
-          <div style={s.mapGridBg} />
-          <div style={s.mapSub}>Interactive map</div>
-          <div style={s.mapLabel}>Click to add locations</div>
-          {pins.map((pin, i) => (
-            <div
-              key={i}
-              style={{
-                position: 'absolute',
-                left: pin.x - 5,
-                top: pin.y - 5,
-                width: 10,
-                height: 10,
-                borderRadius: '50%',
-                background: dotColor[pin.type],
-                border: '2px solid #fff',
-                pointerEvents: 'none',
-                zIndex: 2,
-              }}
-            />
-          ))}
-        </div>
-
-        {/* Legend */}
-        <div style={s.legend}>
-          <div style={s.legendTitle}>Add as</div>
-          {[
-            { value: 'origin', color: tokens.dotBlue, label: 'Origin' },
-            { value: 'destination', color: tokens.accent2, label: 'Destination' },
-            { value: 'supplier', color: tokens.dotAmber, label: 'Supplier' },
-          ].map((lt) => (
-            <label key={lt.value} style={s.radioRow}>
-              <input
-                type="radio"
-                name="locType"
-                value={lt.value}
-                checked={locType === lt.value}
-                onChange={() => setLocType(lt.value)}
-                style={{ accentColor: tokens.accent }}
-              />
-              <div style={{ width: 10, height: 10, borderRadius: '50%', background: lt.color, flexShrink: 0 }} />
-              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: tokens.ink2 }}>{lt.label}</span>
-            </label>
-          ))}
-
-          <div style={{ marginTop: 16, borderTop: `1px solid ${tokens.line}`, paddingTop: 14 }}>
-            <div style={s.legendTitle}>Origins</div>
-            {locations.origins.length === 0
-              ? <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: tokens.ink3 }}>None yet</div>
-              : locations.origins.map((loc, i) => (
-                  <div key={loc.id} style={s.locTag('origin')}>
-                    {loc.city}
-                    <button
-                      onClick={() => removeOrigin(i)}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontSize: 14, padding: 0, opacity: 0.6 }}
-                    >×</button>
-                  </div>
-                ))}
-
-            <div style={{ ...s.legendTitle, marginTop: 12 }}>Destinations</div>
-            {locations.destinations.length === 0
-              ? <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: tokens.ink3 }}>None yet</div>
-              : locations.destinations.map((loc, i) => (
-                  <div key={loc.id} style={s.locTag('destination')}>
-                    {loc.city}
-                    <button
-                      onClick={() => removeDest(i)}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontSize: 14, padding: 0, opacity: 0.6 }}
-                    >×</button>
-                  </div>
-                ))}
-          </div>
-        </div>
-      </div>
-
-      <div style={s.summary}>
-        <span style={s.summaryLabel}>Status</span>
-        <span style={s.summaryVal}>{statusText}</span>
-      </div>
-    </div>
-  );
-}
-
-// ── Step 5: Priorities ─────────────────────────────────────────────────────────
-function Step5({ selected, onToggle }) {
-  return (
-    <div>
-      <div style={s.stepNum}>Step 05 — Priorities</div>
-      <div style={s.stepTitle}>What matters most?</div>
-      <div style={s.stepDesc}>Select at least 2. Highlights the most relevant metrics in your dashboard.</div>
-      <div style={s.grid2}>
-        {PRIORITIES.map((p) => {
-          const sel = selected.includes(p.id);
-          return (
-            <button key={p.id} style={s.card(sel, true)} onClick={() => onToggle(p.id)}>
-              <div style={s.priIcon(sel)}>{p.icon}</div>
-              <div style={s.cardLabel}>
-                {p.label}
-                <div style={s.checkbox(sel)}>{sel && '✓'}</div>
-              </div>
-              <div style={s.cardDesc}>{p.desc}</div>
-            </button>
-          );
-        })}
-      </div>
-      <div style={s.summary}>
-        <span style={s.summaryLabel}>Selected</span>
-        <span style={s.summaryVal}>
-          {selected.length}/4 — {selected.length >= 2 ? 'Ready to continue' : 'Select at least 2'}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-// ── Complete screen ────────────────────────────────────────────────────────────
-function CompleteScreen() {
-  return (
-    <div style={s.completeWrap}>
-      <div style={s.completeBadge}>✓</div>
-      <div style={s.stepTitle}>Setup complete</div>
-      <div style={s.stepDesc}>Your dashboard is being configured. Redirecting you now…</div>
-    </div>
-  );
-}
-
-// ── Main component ─────────────────────────────────────────────────────────────
 export default function Onboarding() {
   const [step, setStep] = useState(1);
-  const [done, setDone] = useState(false);
   const [formData, setFormData] = useState({
     companyType: null,
     supplyChainType: null,
@@ -680,129 +50,573 @@ export default function Onboarding() {
     priorities: [],
   });
 
-  // Inject fonts once
-  useEffect(() => {
-    if (!document.getElementById('ob-fonts')) {
-      const link = document.createElement('link');
-      link.id = 'ob-fonts';
-      link.rel = 'stylesheet';
-      link.href = 'https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700&display=swap';
-      document.head.appendChild(link);
-    }
-    if (!document.getElementById('ob-keyframes')) {
-      const style = document.createElement('style');
-      style.id = 'ob-keyframes';
-      style.textContent = `@keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }`;
-      document.head.appendChild(style);
-    }
-  }, []);
+  const updateForm = (key, value) => {
+    setFormData(prev => ({ ...prev, [key]: value }));
+  };
 
-  const updateForm = (key, value) => setFormData((prev) => ({ ...prev, [key]: value }));
-
-  const toggleRegion = (id) => {
-    setFormData((prev) => ({
+  const toggleRegion = (regionId) => {
+    setFormData(prev => ({
       ...prev,
-      regions: prev.regions.includes(id) ? prev.regions.filter((r) => r !== id) : [...prev.regions, id],
+      regions: prev.regions.includes(regionId)
+        ? prev.regions.filter(r => r !== regionId)
+        : [...prev.regions, regionId],
     }));
   };
 
-  const togglePriority = (id) => {
-    setFormData((prev) => ({
+  const togglePriority = (priorityId) => {
+    setFormData(prev => ({
       ...prev,
-      priorities: prev.priorities.includes(id) ? prev.priorities.filter((p) => p !== id) : [...prev.priorities, id],
+      priorities: prev.priorities.includes(priorityId)
+        ? prev.priorities.filter(p => p !== priorityId)
+        : [...prev.priorities, priorityId],
     }));
   };
 
   const canProceed = () => {
-    if (step === 1) return !!formData.companyType;
-    if (step === 2) return !!formData.supplyChainType;
-    if (step === 3) return formData.regions.length > 0;
-    if (step === 4) return formData.locations.origins.length > 0 && formData.locations.destinations.length > 0;
-    if (step === 5) return formData.priorities.length >= 2;
-    return false;
+    switch (step) {
+      case 1: return !!formData.companyType;
+      case 2: return !!formData.supplyChainType;
+      case 3: return formData.regions.length > 0;
+      case 4: return formData.locations.origins.length > 0 && formData.locations.destinations.length > 0;
+      case 5: return formData.priorities.length >= 2;
+      default: return false;
+    }
   };
 
-  const handleNext = () => { if (canProceed() && step < 5) setStep((s) => s + 1); };
-  const handlePrev = () => { if (step > 1) setStep((s) => s - 1); };
+  const handleNext = () => {
+    if (canProceed() && step < STEPS.length) {
+      setStep(step + 1);
+    }
+  };
+
+  const handlePrev = () => {
+    if (step > 1) setStep(step - 1);
+  };
 
   const handleComplete = async () => {
     try {
-      await savePreferences(formData);
+      // Save to backend
+      const response = await savePreferences(formData);
+      console.log('Onboarding data saved:', response);
+      // Save to localStorage too
       localStorage.setItem('userPreferences', JSON.stringify(formData));
-      setDone(true);
-      setTimeout(() => { window.location.href = '/'; }, 1800);
-    } catch (err) {
-      console.error('Failed to save preferences:', err);
+      // Show success message
+      alert(`✅ Setup complete!\n\nCreated:\n• ${response.created?.shipments || 0} shipments\n• ${response.created?.alerts || 0} alerts`);
+      // Redirect to dashboard
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Failed to save preferences:', error);
       alert('Error saving preferences. Please try again.');
     }
   };
 
-  const segState = (id) => (id < step ? 'done' : id === step ? 'active' : 'idle');
-  const pipState = (id) => (id < step ? 'done' : id === step ? 'active' : 'idle');
+  const progress = (step / STEPS.length) * 100;
 
   return (
-    <div style={s.shell}>
+    <div className="min-h-screen bg-gradient-to-br from-bg-primary via-bg-primary to-purple/5 flex flex-col">
+      {/* Header with gradient */}
+      <div className="relative border-b border-border/50 bg-gradient-to-r from-bg-primary via-cyan/5 to-purple/5 p-8">
+        <div className="max-w-6xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <h1 className="text-4xl font-bold text-text-primary">Setup Your Supply Chain</h1>
+            <p className="text-base text-text-secondary mt-2">
+              Tell us about your operations to get a personalized dashboard
+            </p>
+          </motion.div>
 
-      {/* ── Header ── */}
-      <div style={s.header}>
-        <div style={s.headerTop}>
-          <span style={s.logo}>Chainview — Setup</span>
-          <span style={s.stepCounter}>Step {step} of 5</span>
-        </div>
-        <div style={s.title}>Configure your supply chain</div>
-        <div style={s.subtitle}>Personalize your dashboard in a few steps</div>
-        <div style={s.track}>
-          {STEPS.map((seg) => (
-            <Seg key={seg.id} label={seg.label} state={segState(seg.id)} />
-          ))}
-        </div>
-      </div>
-
-      {/* ── Body ── */}
-      <div style={s.body}>
-        <div style={{ animation: 'fadeUp 0.25s ease both' }} key={step}>
-          {done ? (
-            <CompleteScreen />
-          ) : step === 1 ? (
-            <Step1 value={formData.companyType} onChange={(v) => updateForm('companyType', v)} />
-          ) : step === 2 ? (
-            <Step2 value={formData.supplyChainType} onChange={(v) => updateForm('supplyChainType', v)} />
-          ) : step === 3 ? (
-            <Step3 selected={formData.regions} onToggle={toggleRegion} />
-          ) : step === 4 ? (
-            <Step4 locations={formData.locations} onUpdate={(locs) => updateForm('locations', locs)} />
-          ) : (
-            <Step5 selected={formData.priorities} onToggle={togglePriority} />
-          )}
+          {/* Enhanced Progress bar */}
+          <div className="mt-6 space-y-2">
+            <div className="w-full h-1.5 bg-bg-card rounded-full overflow-hidden backdrop-blur">
+              <motion.div
+                className="h-full bg-gradient-to-r from-cyan to-purple rounded-full"
+                initial={{ width: 0 }}
+                animate={{ width: `${progress}%` }}
+                transition={{ duration: 0.4, ease: 'easeOut' }}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-cyan">Step {step} of {STEPS.length}</p>
+              <p className="text-xs text-text-muted">{Math.round(progress)}% Complete</p>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* ── Footer ── */}
-      {!done && (
-        <div style={s.footer}>
-          <button style={s.btn('ghost', step === 1)} disabled={step === 1} onClick={handlePrev}>
-            ← Previous
-          </button>
+      {/* Main content */}
+      <div className="flex-1 p-6 overflow-auto">
+        <div className="max-w-6xl mx-auto">
+          <AnimatePresence mode="wait">
+            {step === 1 && (
+              <Step1
+                key="step1"
+                value={formData.companyType}
+                onChange={(v) => updateForm('companyType', v)}
+              />
+            )}
+            {step === 2 && (
+              <Step2
+                key="step2"
+                value={formData.supplyChainType}
+                onChange={(v) => updateForm('supplyChainType', v)}
+              />
+            )}
+            {step === 3 && (
+              <Step3
+                key="step3"
+                selected={formData.regions}
+                onToggle={toggleRegion}
+              />
+            )}
+            {step === 4 && (
+              <Step4
+                key="step4"
+                locations={formData.locations}
+                onUpdate={(locs) => updateForm('locations', locs)}
+              />
+            )}
+            {step === 5 && (
+              <Step5
+                key="step5"
+                selected={formData.priorities}
+                onToggle={togglePriority}
+              />
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
 
-          <div style={{ display: 'flex', gap: 6 }}>
-            {STEPS.map((p) => (
-              <div key={p.id} style={s.pip(pipState(p.id))}>
-                {pipState(p.id) === 'done' ? '✓' : p.id}
-              </div>
+      {/* Footer with enhanced styling */}
+      <div className="border-t border-border/50 p-6 bg-gradient-to-t from-bg-elevated/50 to-bg-elevated/30 backdrop-blur">
+        <div className="max-w-6xl mx-auto flex flex-col gap-4">
+          {/* Step indicators */}
+          <div className="flex items-center justify-center gap-2 flex-wrap">
+            {STEPS.map((s, idx) => (
+              <motion.div
+                key={s.id}
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: idx * 0.05 }}
+                className="flex items-center gap-2"
+              >
+                <button
+                  onClick={() => step > s.id && setStep(s.id)}
+                  className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                    s.id === step
+                      ? 'bg-gradient-to-r from-cyan to-purple text-white shadow-lg shadow-cyan/20'
+                      : s.id < step
+                      ? 'bg-status-success/20 text-status-success hover:bg-status-success/30'
+                      : 'bg-border/50 text-text-muted hover:bg-border'
+                  }`}
+                >
+                  {s.id < step ? (
+                    <CheckCircle className="w-3.5 h-3.5" />
+                  ) : (
+                    <span className="w-3.5 h-3.5 flex items-center justify-center text-xs">{s.id}</span>
+                  )}
+                  <span className="hidden sm:inline">{s.title}</span>
+                </button>
+                {idx < STEPS.length - 1 && (
+                  <div className={`hidden sm:block h-0.5 w-8 ${s.id < step ? 'bg-status-success' : 'bg-border/50'}`} />
+                )}
+              </motion.div>
             ))}
           </div>
 
-          {step === 5 ? (
-            <button style={s.btn('complete', !canProceed())} disabled={!canProceed()} onClick={handleComplete}>
-              Complete setup ✓
+          {/* Action buttons */}
+          <div className="flex items-center justify-between">
+            <button
+              onClick={handlePrev}
+              disabled={step === 1}
+              className={`btn btn-secondary flex items-center gap-2 transition-all ${step === 1 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-white/10'}`}
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Previous
             </button>
-          ) : (
-            <button style={s.btn('primary', !canProceed())} disabled={!canProceed()} onClick={handleNext}>
-              Next →
-            </button>
-          )}
+
+            <div className="text-center text-xs text-text-muted">
+              Supply Chain Setup
+            </div>
+
+            {step === STEPS.length ? (
+              <motion.button
+                onClick={handleComplete}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="btn btn-primary flex items-center gap-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
+              >
+                <CheckCircle className="w-4 h-4" />
+                Complete Setup
+              </motion.button>
+            ) : (
+              <motion.button
+                onClick={handleNext}
+                disabled={!canProceed()}
+                whileHover={canProceed() ? { scale: 1.05 } : {}}
+                whileTap={canProceed() ? { scale: 0.95 } : {}}
+                className={`btn btn-primary flex items-center gap-2 transition-all ${!canProceed() ? 'opacity-40 cursor-not-allowed' : 'bg-gradient-to-r from-cyan to-purple hover:from-cyan/80 hover:to-purple/80'}`}
+              >
+                Next
+                <ChevronRight className="w-4 h-4" />
+              </motion.button>
+            )}
+          </div>
         </div>
-      )}
+      </div>
     </div>
+  );
+}
+
+// ── Step 1: Company Type ──
+function Step1({ value, onChange }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className="space-y-6 max-w-4xl"
+    >
+      <div>
+        <h2 className="text-3xl font-bold text-text-primary mb-2">What type of company are you?</h2>
+        <p className="text-base text-text-secondary">
+          This helps us tailor metrics and recommendations for your business model.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {COMPANY_TYPES.map((type) => (
+          <motion.button
+            key={type.value}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => onChange(type.value)}
+            className={`p-6 rounded-2xl border-2 transition-all text-left ${
+              value === type.value
+                ? 'border-cyan bg-cyan/10 shadow-lg shadow-cyan/20'
+                : 'border-border/50 bg-bg-card/50 hover:border-border hover:bg-bg-card'
+            }`}
+          >
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <p className="font-bold text-lg text-text-primary">{type.label}</p>
+                <p className="text-sm text-text-secondary mt-1">{type.desc}</p>
+              </div>
+              <div
+                className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ml-4 transition-all ${
+                  value === type.value
+                    ? 'border-cyan bg-cyan'
+                    : 'border-border'
+                }`}
+              >
+                {value === type.value && (
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="w-2 h-2 bg-black rounded-full"
+                  />
+                )}
+              </div>
+            </div>
+          </motion.button>
+        ))}
+      </div>
+    </motion.div>
+  );
+}
+
+// ── Step 2: Supply Chain Type ──
+function Step2({ value, onChange }) {
+  const types = [
+    { value: 'international', label: 'International', desc: 'Global multi-country operations', icon: '🌍' },
+    { value: 'regional', label: 'Regional', desc: 'Focus on specific regions', icon: '🗺️' },
+    { value: 'domestic', label: 'Domestic', desc: 'Single country operations', icon: '🏢' },
+  ];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className="space-y-6 max-w-4xl"
+    >
+      <div>
+        <h2 className="text-3xl font-bold text-text-primary mb-2">What's your geographic scope?</h2>
+        <p className="text-base text-text-secondary">
+          Help us understand the complexity of your supply network.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {types.map((type) => (
+          <motion.button
+            key={type.value}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => onChange(type.value)}
+            className={`p-6 rounded-2xl border-2 transition-all text-center ${
+              value === type.value
+                ? 'border-purple bg-purple/10 shadow-lg shadow-purple/20'
+                : 'border-border/50 bg-bg-card/50 hover:border-border hover:bg-bg-card'
+            }`}
+          >
+            <div className="text-3xl mb-3">{type.icon}</div>
+            <p className="font-bold text-lg text-text-primary">{type.label}</p>
+            <p className="text-sm text-text-secondary mt-2">{type.desc}</p>
+            {value === type.value && (
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                className="mt-4 pt-4 border-t border-purple/30"
+              >
+                <span className="text-xs font-bold text-purple">✓ Selected</span>
+              </motion.div>
+            )}
+          </motion.button>
+        ))}
+      </div>
+    </motion.div>
+  );
+}
+
+// ── Step 3: Select Regions ──
+function Step3({ selected, onToggle }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className="space-y-6 max-w-4xl"
+    >
+      <div>
+        <h2 className="text-3xl font-bold text-text-primary mb-2">
+          Which regions do you operate in?
+        </h2>
+        <p className="text-base text-text-secondary">
+          Select all that apply. You can focus alerts and metrics on these areas.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {REGIONS.map((region) => (
+          <motion.button
+            key={region.id}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => onToggle(region.id)}
+            className={`p-5 rounded-2xl border-2 transition-all text-left ${
+              selected.includes(region.id)
+                ? 'border-emerald-500 bg-emerald-500/10 shadow-lg shadow-emerald-500/20'
+                : 'border-border/50 bg-bg-card/50 hover:border-border hover:bg-bg-card'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <p className="font-semibold text-text-primary">{region.name}</p>
+              <motion.div
+                initial={false}
+                animate={selected.includes(region.id) ? { scale: 1 } : { scale: 0.8 }}
+                className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
+                  selected.includes(region.id)
+                    ? 'border-emerald-500 bg-emerald-500'
+                    : 'border-border'
+                }`}
+              >
+                {selected.includes(region.id) && (
+                  <span className="text-xs text-white font-bold">✓</span>
+                )}
+              </motion.div>
+            </div>
+          </motion.button>
+        ))}
+      </div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="p-4 rounded-xl bg-gradient-to-r from-emerald-500/10 to-cyan/10 border border-emerald-500/30"
+      >
+        <p className="text-xs font-bold text-text-primary mb-2">📍 Selected Regions:</p>
+        <p className="text-sm text-text-secondary">
+          {selected.length === 0
+            ? 'No regions selected yet'
+            : REGIONS.filter(r => selected.includes(r.id))
+              .map(r => r.name)
+              .join(', ')}
+        </p>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// ── Step 4: Place Locations on Map ──
+function Step4({ locations, onUpdate }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className="space-y-4"
+    >
+      <div>
+        <h2 className="text-lg font-semibold text-text-primary mb-2">
+          Where are your key locations?
+        </h2>
+        <p className="text-sm text-text-secondary mb-4">
+          Click on the map to add origins, destinations, and suppliers. At least one origin and destination required.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        {/* Map - takes up 3 columns */}
+        <div className="lg:col-span-3">
+          <InteractiveMap
+            locations={locations}
+            onUpdate={onUpdate}
+            mode="setup"
+          />
+        </div>
+
+        {/* Legend & Controls */}
+        <div className="card space-y-4">
+          <div>
+            <p className="text-sm font-semibold text-text-primary mb-3">Add Locations</p>
+            <div className="space-y-2 text-xs">
+              <label className="flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-bg-elevated">
+                <input type="radio" name="locType" value="origin" />
+                <span className="w-3 h-3 rounded-full bg-status-info" />
+                <span>Origin</span>
+              </label>
+              <label className="flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-bg-elevated">
+                <input type="radio" name="locType" value="destination" />
+                <span className="w-3 h-3 rounded-full bg-status-success" />
+                <span>Destination</span>
+              </label>
+              <label className="flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-bg-elevated">
+                <input type="radio" name="locType" value="supplier" />
+                <span className="w-3 h-3 rounded-full bg-status-warning" />
+                <span>Supplier</span>
+              </label>
+            </div>
+          </div>
+
+          <div className="divider" />
+
+          <div>
+            <p className="text-xs font-semibold text-text-primary mb-2">Your Locations</p>
+            <div className="space-y-2 text-xs">
+              {locations.origins.length === 0 && locations.destinations.length === 0 && (
+                <p className="text-text-muted">Click on the map to add locations</p>
+              )}
+              {locations.origins.map((loc) => (
+                <div key={`origin-${loc.id}`} className="flex items-center justify-between p-2 rounded bg-status-info/10">
+                  <span className="text-text-secondary truncate">{loc.city}</span>
+                  <button className="text-status-info hover:text-red">
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+              {locations.destinations.map((loc) => (
+                <div key={`dest-${loc.id}`} className="flex items-center justify-between p-2 rounded bg-status-success/10">
+                  <span className="text-text-secondary truncate">{loc.city}</span>
+                  <button className="text-status-success hover:text-red">
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// ── Step 5: Priorities ──
+function Step5({ selected, onToggle }) {
+  const PRIORITIES_LIST = [
+    { id: 'cost', label: 'Cost Optimization', icon: '💰', desc: 'Minimize logistics costs' },
+    { id: 'speed', label: 'Speed & Delivery', icon: '⚡', desc: 'Fast on-time delivery' },
+    { id: 'risk', label: 'Risk Mitigation', icon: '🛡️', desc: 'Reduce disruptions' },
+    { id: 'sustainability', label: 'Sustainability', icon: '🌱', desc: 'Lower carbon footprint' },
+  ];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className="space-y-6 max-w-4xl"
+    >
+      <div>
+        <h2 className="text-3xl font-bold text-text-primary mb-2">
+          What are your top priorities?
+        </h2>
+        <p className="text-base text-text-secondary">
+          Choose at least 2. We'll highlight relevant metrics and alerts based on these.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {PRIORITIES_LIST.map((priority) => (
+          <motion.button
+            key={priority.id}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => onToggle(priority.id)}
+            className={`p-6 rounded-2xl border-2 transition-all text-left ${
+              selected.includes(priority.id)
+                ? 'border-amber-500 bg-amber-500/10 shadow-lg shadow-amber-500/20'
+                : 'border-border/50 bg-bg-card/50 hover:border-border hover:bg-bg-card'
+            }`}
+          >
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-2xl">{priority.icon}</span>
+                  <p className="font-bold text-lg text-text-primary">{priority.label}</p>
+                </div>
+                <p className="text-sm text-text-secondary">{priority.desc}</p>
+              </div>
+              <motion.div
+                initial={false}
+                animate={selected.includes(priority.id) ? { scale: 1 } : { scale: 0.8 }}
+                className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ml-4 ${
+                  selected.includes(priority.id)
+                    ? 'border-amber-500 bg-amber-500'
+                    : 'border-border'
+                }`}
+              >
+                {selected.includes(priority.id) && (
+                  <span className="text-xs text-white font-bold">✓</span>
+                )}
+              </motion.div>
+            </div>
+          </motion.button>
+        ))}
+      </div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="p-5 rounded-xl bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30"
+      >
+        <p className="text-xs font-bold text-text-primary mb-3">📋 Setup Summary</p>
+        <ul className="space-y-2 text-sm text-text-secondary">
+          <li className="flex items-center gap-2">
+            <span className={selected.length >= 2 ? 'text-emerald-500' : 'text-text-muted'}>
+              {selected.length >= 2 ? '✓' : '○'}
+            </span>
+            Priorities selected: <span className="font-semibold text-text-primary">{selected.length}/4</span>
+          </li>
+          <li className="flex items-center gap-2">
+            <span className={selected.length >= 2 ? 'text-emerald-500' : 'text-text-muted'}>
+              {selected.length >= 2 ? '✓' : '○'}
+            </span>
+            Ready to complete: <span className="font-semibold text-text-primary">{selected.length >= 2 ? 'Yes!' : 'Select at least 2'}</span>
+          </li>
+        </ul>
+      </motion.div>
+    </motion.div>
   );
 }

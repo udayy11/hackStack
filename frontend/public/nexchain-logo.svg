@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <style>
+      @keyframes glow {
+        0%, 100% { filter: drop-shadow(0 0 4px rgba(0, 229, 255, 0.8)); }
+        50% { filter: drop-shadow(0 0 8px rgba(0, 229, 255, 1)); }
+      }
+      .brain-left { animation: glow 2s infinite; }
+      .brain-right { animation: glow 2s infinite 0.3s; }
+      .truck { animation: glow 2s infinite 0.6s; }
+    </style>
+  </defs>
+  
+  <!-- Left brain hemisphere (Cyan) -->
+  <path class="brain-left" d="M 60 80 Q 40 100 45 130 Q 50 150 70 160 Q 80 165 85 145 Q 90 130 85 110 Q 80 95 70 85 Z" 
+    fill="none" stroke="#00E5FF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- Right brain hemisphere (Purple) -->
+  <path class="brain-right" d="M 140 80 Q 160 100 155 130 Q 150 150 130 160 Q 120 165 115 145 Q 110 130 115 110 Q 120 95 130 85 Z" 
+    fill="none" stroke="#A78BFA" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- Brain curves/connections - left side -->
+  <path class="brain-left" d="M 55 90 Q 65 85 75 88 M 50 100 Q 65 95 78 100 M 52 115 Q 68 110 82 115" 
+    fill="none" stroke="#00E5FF" stroke-width="2" stroke-linecap="round"/>
+  
+  <!-- Brain curves/connections - right side -->
+  <path class="brain-right" d="M 145 90 Q 135 85 125 88 M 150 100 Q 135 95 122 100 M 148 115 Q 132 110 118 115" 
+    fill="none" stroke="#A78BFA" stroke-width="2" stroke-linecap="round"/>
+  
+  <!-- Truck in center -->
+  <g class="truck">
+    <rect x="75" y="105" width="50" height="25" rx="2" fill="none" stroke="#00E5FF" stroke-width="2"/>
+    <rect x="78" y="108" width="20" height="12" fill="none" stroke="#00E5FF" stroke-width="1.5"/>
+    <circle cx="82" cy="133" r="3" fill="#00E5FF"/>
+    <circle cx="118" cy="133" r="3" fill="#00E5FF"/>
+  </g>
+  
+  <!-- Connection nodes -->
+  <circle class="brain-left" cx="50" cy="110" r="3" fill="#00E5FF"/>
+  <circle class="brain-left" cx="65" cy="80" r="3" fill="#00E5FF"/>
+  <circle class="brain-left" cx="70" cy="150" r="3" fill="#00E5FF"/>
+  
+  <circle class="brain-right" cx="150" cy="110" r="3" fill="#A78BFA"/>
+  <circle class="brain-right" cx="135" cy="80" r="3" fill="#A78BFA"/>
+  <circle class="brain-right" cx="130" cy="150" r="3" fill="#A78BFA"/>
+</svg>
