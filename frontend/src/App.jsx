@@ -4,7 +4,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import ChatPanel from './components/ChatPanel';
-import Onboarding from './pages/Onboarding';
+import Onboarding from './pages/onboarding';
 import Dashboard from './pages/Dashboard';
 import ControlTower from './pages/ControlTower';
 import Shipments from './pages/Shipments';
